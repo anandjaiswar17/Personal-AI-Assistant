@@ -1,12 +1,12 @@
 """
 gmail_auth.py
 ─────────────────────────────────────────
-Handles Google OAuth2 authentication for Gmail API.
+Handles Google OAuth2 authentication for Gmail API + Google Calendar API.
 
 SETUP STEPS:
 1. Go to https://console.cloud.google.com
 2. Create a new project
-3. Enable Gmail API
+3. Enable Gmail API AND Google Calendar API
 4. Create OAuth 2.0 credentials (Desktop App)
 5. Download as credentials.json and place in this folder
 6. Run this file once: python gmail_auth.py
@@ -22,11 +22,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Scopes needed for reading emails and managing drafts
+# Scopes needed for Gmail + Google Calendar
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",      # Read emails
     "https://www.googleapis.com/auth/gmail.compose",       # Create drafts
-    "https://www.googleapis.com/auth/gmail.modify",        # Modify labels (mark as read)
+    "https://www.googleapis.com/auth/gmail.modify",        # Modify labels
+    "https://www.googleapis.com/auth/calendar",            # Full calendar access
+    "https://www.googleapis.com/auth/calendar.events",     # Create/edit events
 ]
 
 CREDENTIALS_FILE = os.getenv("GMAIL_CREDENTIALS_FILE", "credentials.json")
