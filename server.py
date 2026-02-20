@@ -247,12 +247,21 @@ async def run_agent(request: RunAgentRequest):
             # Check calendar conflicts if meeting detected
             conflict = False
             cal = analysis.get("calendar_details", {})
-            if analysis.get("calendar_action") == "meeting" and cal.get("date") and cal.get("time"):
-                start_dt = f"{cal['date']}T{cal['time']}:00"
-                duration = cal.get("duration_minutes", DEFAULT_DURATION)
-                end_dt = (datetime.fromisoformat(start_dt) + timedelta(minutes=duration)).isoformat()
-                conflicts = check_conflicts(start_dt, end_dt)
-                conflict = len(conflicts) > 0
+            cal_date = cal.get("date", "")
+            cal_time = cal.get("time", "")
+            if (
+                analysis.get("calendar_action") == "meeting"
+                and cal_date and "[" not in cal_date
+                and cal_time and "[" not in cal_time
+            ):
+                try:
+                    start_dt = f"{cal_date}T{cal_time}:00"
+                    duration = cal.get("duration_minutes", DEFAULT_DURATION)
+                    end_dt = (datetime.fromisoformat(start_dt) + timedelta(minutes=duration)).isoformat()
+                    conflicts = check_conflicts(start_dt, end_dt)
+                    conflict = len(conflicts) > 0
+                except ValueError:
+                    conflict = False
 
             results.append({
                 "email_id": email["id"],
@@ -292,7 +301,39 @@ async def confirm_calendar(request: CalendarConfirmRequest):
     Creates the actual Google Calendar event.
     """
     try:
-        start_dt = f"{request.date}T{request.time}:00"
+        # ── Validate date ──
+        if not request.date or "[" in request.date or not request.date.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Please enter a valid date (YYYY-MM-DD) before confirming."
+            )
+
+        # ── Validate time ──
+        if not request.time or "[" in request.time or not request.time.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Please enter a valid time (HH:MM) before confirming."
+            )
+
+        # ── Validate date format ──
+        try:
+            datetime.strptime(request.date.strip(), "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid date format '{request.date}'. Please use YYYY-MM-DD (e.g. 2026-03-15)."
+            )
+
+        # ── Validate time format ──
+        try:
+            datetime.strptime(request.time.strip(), "%H:%M")
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid time format '{request.time}'. Please use HH:MM (e.g. 14:30)."
+            )
+
+        start_dt = f"{request.date.strip()}T{request.time.strip()}:00"
         end_dt = (
             datetime.fromisoformat(start_dt) +
             timedelta(minutes=request.duration_minutes)

@@ -886,6 +886,7 @@
             <div class="section-label">📅 Calendar — ${r.calendar_action === 'meeting' ? 'Meeting Request' : 'Reminder'}</div>
             <div class="calendar-confirm-box" id="cal-box-${i}">
               ${conflictWarning}
+              ${(!cal.date || !cal.time) ? `<div class="conflict-warning">📝 Date/time not found in email — please fill them in manually before confirming.</div>` : ''}
               <div class="cal-details">
                 <div class="cal-detail-item">
                   <label>Event Title</label>
@@ -967,15 +968,29 @@
   }
 
   async function confirmCalendar(index, action, emailId) {
-    const title    = document.getElementById(`cal-title-${index}`).value;
-    const date     = document.getElementById(`cal-date-${index}`).value;
-    const time     = document.getElementById(`cal-time-${index}`).value;
+    const title    = document.getElementById(`cal-title-${index}`).value.trim();
+    const date     = document.getElementById(`cal-date-${index}`).value.trim();
+    const time     = document.getElementById(`cal-time-${index}`).value.trim();
     const duration = parseInt(document.getElementById(`cal-duration-${index}`).value);
-    const desc     = document.getElementById(`cal-desc-${index}`).value;
-    const attendee = document.getElementById(`cal-attendee-${index}`).value;
+    const desc     = document.getElementById(`cal-desc-${index}`).value.trim();
+    const attendee = document.getElementById(`cal-attendee-${index}`).value.trim();
 
-    if (!date || !time) {
-      alert('Please fill in the date and time before confirming.');
+    // ── Frontend validation ──
+    if (!date || date.includes('[')) {
+      alert('⚠️ Please enter a valid date before confirming.');
+      document.getElementById(`cal-date-${index}`).focus();
+      return;
+    }
+
+    if (!time || time.includes('[')) {
+      alert('⚠️ Please enter a valid time before confirming.');
+      document.getElementById(`cal-time-${index}`).focus();
+      return;
+    }
+
+    if (!title) {
+      alert('⚠️ Please enter an event title.');
+      document.getElementById(`cal-title-${index}`).focus();
       return;
     }
 
