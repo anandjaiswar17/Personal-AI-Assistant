@@ -20,4 +20,4 @@ services:
       - key: MAX_EMAILS_TO_PROCESS
         value: "10"
       - key: DEFAULT_MEETING_DURATION_MINS
-        value: "60"
+        value: "60" 
