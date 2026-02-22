@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: email-calendar-agent
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TOKEN_JSON
+        sync: false
+      - key: YOUR_NAME
+        sync: false
+      - key: YOUR_EMAIL
+        sync: false
+      - key: EMAIL_TONE
+        value: professional
+      - key: TIMEZONE
+        value: Asia/Kolkata
+      - key: MAX_EMAILS_TO_PROCESS
+        value: "10"
+      - key: DEFAULT_MEETING_DURATION_MINS
+        value: "60"
