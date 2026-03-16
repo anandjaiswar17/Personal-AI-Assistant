@@ -31,7 +31,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from gmail_utils import fetch_unread_emails, save_draft
 
-load_dotenv()
+load_dotenv() 
 
 # ─────────────────────────────────────────
 # LLM Setup — Groq with Llama 3.3 70B
