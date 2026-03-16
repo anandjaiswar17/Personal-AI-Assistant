@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Assistant — Email & Calendar</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #2a2a38;
+    --accent: #7c6dfa;
+    --accent2: #fa6d9a;
+    --accent3: #6dfabd;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --urgent-high: #fa6d6d;
+    --urgent-med: #faa56d;
+    --urgent-low: #6dfabd;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Ambient glow */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -30%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80vw;
+    height: 60vh;
+    background: radial-gradient(ellipse, rgba(124,109,250,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 56px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-block .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .logo-block h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px, 5vw, 42px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
+  .logo-block h1 span {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .status-dot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    background: var(--surface);
+  }
+
+  .status-dot::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent3);
+    box-shadow: 0 0 6px var(--accent3);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── FORM ── */
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .form-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .form-card h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 28px;
+    color: var(--text);
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  input, select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+    -webkit-appearance: none;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124,109,250,0.15);
+  }
+
+  input::placeholder { color: var(--muted); }
+
+  select option { background: var(--surface2); }
+
+  /* Toggle buttons for email type */
+  .toggle-group {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .toggle-btn {
+    flex: 1;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border: none;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .toggle-btn + .toggle-btn {
+    border-left: 1px solid var(--border);
+  }
+
+  .toggle-btn.active {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .toggle-btn:hover:not(.active) {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  /* Run button */
+  .run-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent) 0%, #5a4ddd 100%);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    margin-top: 24px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .run-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,109,250,0.4); }
+  .run-btn:active { transform: translateY(0); }
+  .run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .run-btn .btn-content { display: flex; align-items: center; justify-content: center; gap: 10px; }
+
+  /* ── LOADING ── */
+  #loading {
+    display: none;
+    text-align: center;
+    padding: 48px 24px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface);
+    margin-bottom: 32px;
+  }
+
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .loading-steps {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .loading-step {
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0;
+    animation: fadeInStep 0.4s forwards;
+  }
+
+  @keyframes fadeInStep { to { opacity: 1; } }
+
+  /* ── RESULTS ── */
+  #results { display: none; }
+
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .results-header h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .results-meta {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    gap: 16px;
+  }
+
+  .meta-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    background: var(--surface);
+  }
+
+  /* Email card */
+  .email-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+    animation: slideIn 0.4s ease forwards;
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  @keyframes slideIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .email-card:hover { border-color: rgba(124,109,250,0.4); }
+
+  .card-header {
+    padding: 20px 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .card-header:hover { background: rgba(255,255,255,0.02); }
+
+  .urgency-badge {
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .urgency-HIGH { background: rgba(250,109,109,0.15); color: var(--urgent-high); border: 1px solid rgba(250,109,109,0.3); }
+  .urgency-MEDIUM { background: rgba(250,165,109,0.15); color: var(--urgent-med); border: 1px solid rgba(250,165,109,0.3); }
+  .urgency-LOW { background: rgba(109,250,189,0.12); color: var(--urgent-low); border: 1px solid rgba(109,250,189,0.25); }
+
+  .card-meta { flex: 1; min-width: 0; }
+
+  .card-subject {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-from {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .card-icons {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    align-items: center;
+  }
+
+  .icon-pill {
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 10px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .icon-pill.has-draft { border-color: rgba(124,109,250,0.4); color: var(--accent); background: rgba(124,109,250,0.08); }
+  .icon-pill.has-calendar { border-color: rgba(109,250,189,0.4); color: var(--accent3); background: rgba(109,250,189,0.08); }
+  .icon-pill.has-conflict { border-color: rgba(250,109,109,0.4); color: var(--urgent-high); background: rgba(250,109,109,0.08); }
+
+  .chevron {
+    color: var(--muted);
+    font-size: 18px;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .chevron.open { transform: rotate(180deg); }
+
+  /* Card body */
+  .card-body {
+    display: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .card-body.open { display: block; }
+
+  .card-section {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .card-section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .summary-text {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .key-points {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .key-points li {
+    font-size: 12px;
+    color: var(--text);
+    padding-left: 16px;
+    position: relative;
+    line-height: 1.5;
+  }
+
+  .key-points li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+  }
+
+  /* Draft reply */
+  .draft-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--text);
+    white-space: pre-wrap;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .draft-note {
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Calendar confirmation */
+  .calendar-confirm-box {
+    background: linear-gradient(135deg, rgba(109,250,189,0.06) 0%, rgba(124,109,250,0.06) 100%);
+    border: 1px solid rgba(109,250,189,0.2);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .cal-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .cal-detail-item label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .cal-detail-item input {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  .cal-detail-item.full { grid-column: 1 / -1; }
+
+  .conflict-warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(250,109,109,0.1);
+    border: 1px solid rgba(250,109,109,0.3);
+    border-radius: 8px;
+    font-size: 11px;
+    color: var(--urgent-high);
+    margin-bottom: 14px;
+  }
+
+  .cal-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn-confirm {
+    flex: 1;
+    padding: 11px;
+    background: var(--accent3);
+    color: var(--bg);
+    border: none;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-confirm:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn-confirm:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-skip {
+    padding: 11px 20px;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-skip:hover { border-color: var(--muted); color: var(--text); }
+
+  .cal-confirmed {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px;
+    background: rgba(109,250,189,0.1);
+    border: 1px solid rgba(109,250,189,0.3);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--accent3);
+  }
+
+  .cal-skipped {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px;
+    background: rgba(107,107,128,0.1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Summary stats */
+  .digest-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+  }
+
+  .digest-stat {
+    text-align: center;
+  }
+
+  .digest-stat .num {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .digest-stat .lbl {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .num.accent { color: var(--accent); }
+  .num.green { color: var(--accent3); }
+  .num.pink { color: var(--accent2); }
+  .num.red { color: var(--urgent-high); }
+
+  /* Error */
+  .error-box {
+    padding: 20px 24px;
+    background: rgba(250,109,109,0.08);
+    border: 1px solid rgba(250,109,109,0.3);
+    border-radius: 12px;
+    color: var(--urgent-high);
+    font-size: 13px;
+    margin-bottom: 24px;
+    display: none;
+  }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .form-group.full { grid-column: 1; }
+    .cal-details { grid-template-columns: 1fr; }
+    .cal-detail-item.full { grid-column: 1; }
+    .digest-bar { grid-template-columns: repeat(2, 1fr); }
+    header { flex-direction: column; gap: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo-block">
+      <div class="eyebrow">AI Personal Assistant</div>
+      <h1>Email &<br/><span>Calendar</span></h1>
+    </div>
+    <div class="status-dot">System Online</div>
+  </header>
+
+  <!-- FORM -->
+  <div class="form-card">
+    <h2>Configure Your Session</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Your Name</label>
+        <input type="text" id="name" placeholder="Martin" />
+      </div>
+      <div class="form-group">
+        <label>Your Email</label>
+        <input type="email" id="email" placeholder="you@gmail.com" />
+      </div>
+      <div class="form-group">
+        <label>Number of Emails</label>
+        <input type="number" id="numEmails" value="5" min="1" max="50" />
+      </div>
+      <div class="form-group">
+        <label>Reply Tone</label>
+        <select id="tone">
+          <option value="professional">Professional</option>
+          <option value="casual">Casual</option>
+          <option value="formal">Formal</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Email Selection</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="btn-unread" onclick="setEmailType('unread')">
+            ● Unread Emails
+          </button>
+          <button class="toggle-btn" id="btn-latest" onclick="setEmailType('latest')">
+            ◎ Latest Emails
+          </button>
+        </div>
+      </div>
+    </div>
+    <button class="run-btn" onclick="runAgent()" id="runBtn">
+      <span class="btn-content">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Analyze Emails
+      </span>
+    </button>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- LOADING -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">Analyzing your emails with AI...</div>
+    <div class="loading-steps" id="loadingSteps"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results">
+    <div class="results-header">
+      <h2>Analysis Results</h2>
+      <div class="results-meta" id="resultsMeta"></div>
+    </div>
+    <div class="digest-bar" id="digestBar"></div>
+    <div id="emailCards"></div>
+  </div>
+
+</div>
+
+<script>
+  let emailType = 'unread';
+  let globalResults = [];
+
+  function setEmailType(type) {
+    emailType = type;
+    document.getElementById('btn-unread').classList.toggle('active', type === 'unread');
+    document.getElementById('btn-latest').classList.toggle('active', type === 'latest');
+  }
+
+  function toggleCard(index) {
+    const body = document.getElementById(`card-body-${index}`);
+    const chevron = document.getElementById(`chevron-${index}`);
+    body.classList.toggle('open');
+    chevron.classList.toggle('open');
+  }
+
+  async function runAgent() {
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const numEmails = parseInt(document.getElementById('numEmails').value);
+    const tone = document.getElementById('tone').value;
+
+    if (!name || !email) {
+      showError('Please enter your name and email.');
+      return;
+    }
+
+    hideError();
+    showLoading();
+    document.getElementById('runBtn').disabled = true;
+    document.getElementById('results').style.display = 'none';
+
+    const steps = [
+      '🔗 Connecting to Gmail...',
+      '📬 Fetching emails...',
+      '🧠 Analyzing with Llama 3.3 70B...',
+      '✍️  Drafting replies...',
+      '📅 Detecting calendar events...',
+    ];
+
+    let stepIndex = 0;
+    const stepInterval = setInterval(() => {
+      if (stepIndex < steps.length) {
+        addLoadingStep(steps[stepIndex]);
+        stepIndex++;
+      } else {
+        clearInterval(stepInterval);
+      }
+    }, 1200);
+
+    try {
+      const response = await fetch('/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name, email,
+          num_emails: numEmails,
+          email_type: emailType,
+          tone
+        })
+      });
+
+      clearInterval(stepInterval);
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Server error');
+      }
+
+      const data = await response.json();
+      globalResults = data.results || [];
+
+      hideLoading();
+      renderResults(data);
+
+    } catch (err) {
+      clearInterval(stepInterval);
+      hideLoading();
+      showError(`Error: ${err.message}`);
+    } finally {
+      document.getElementById('runBtn').disabled = false;
+    }
+  }
+
+  function renderResults(data) {
+    const results = data.results || [];
+    const resultsDiv = document.getElementById('results');
+    const cardsDiv = document.getElementById('emailCards');
+    const digestBar = document.getElementById('digestBar');
+    const metaDiv = document.getElementById('resultsMeta');
+
+    const drafts = results.filter(r => r.draft_id).length;
+    const calEvents = results.filter(r => r.calendar_action !== 'none').length;
+    const conflicts = results.filter(r => r.conflict_detected).length;
+    const urgent = results.filter(r => r.urgency === 'HIGH').length;
+
+    digestBar.innerHTML = `
+      <div class="digest-stat"><div class="num accent">${results.length}</div><div class="lbl">Processed</div></div>
+      <div class="digest-stat"><div class="num green">${drafts}</div><div class="lbl">Drafts Saved</div></div>
+      <div class="digest-stat"><div class="num pink">${calEvents}</div><div class="lbl">Calendar Events</div></div>
+      <div class="digest-stat"><div class="num red">${conflicts}</div><div class="lbl">Conflicts</div></div>
+    `;
+
+    metaDiv.innerHTML = `
+      <div class="meta-pill">📧 ${emailType === 'unread' ? 'Unread' : 'Latest'}</div>
+      <div class="meta-pill">⚠️ ${urgent} Urgent</div>
+    `;
+
+    cardsDiv.innerHTML = '';
+
+    results.forEach((r, i) => {
+      const delay = i * 80;
+      const card = document.createElement('div');
+      card.className = 'email-card';
+      card.style.animationDelay = `${delay}ms`;
+
+      const hasDraft = r.draft_id;
+      const hasCal = r.calendar_action !== 'none';
+      const hasConflict = r.conflict_detected;
+
+      const pillsHTML = `
+        ${hasDraft ? '<span class="icon-pill has-draft">✍️ Draft</span>' : ''}
+        ${hasCal ? `<span class="icon-pill has-calendar">📅 ${r.calendar_action}</span>` : ''}
+        ${hasConflict ? '<span class="icon-pill has-conflict">⚠️ Conflict</span>' : ''}
+      `;
+
+      // Calendar confirmation UI
+      let calHTML = '';
+      if (hasCal) {
+        const cal = r.calendar_details || {};
+        const conflictWarning = hasConflict
+          ? `<div class="conflict-warning">⚠️ Scheduling conflict detected at this time. Review before confirming.</div>`
+          : '';
+
+        calHTML = `
+          <div class="card-section">
+            <div class="section-label">📅 Calendar — ${r.calendar_action === 'meeting' ? 'Meeting Request' : 'Reminder'}</div>
+            <div class="calendar-confirm-box" id="cal-box-${i}">
+              ${conflictWarning}
+              ${(!cal.date || !cal.time) ? `<div class="conflict-warning">📝 Date/time not found in email — please fill them in manually before confirming.</div>` : ''}
+              <div class="cal-details">
+                <div class="cal-detail-item">
+                  <label>Event Title</label>
+                  <input type="text" id="cal-title-${i}" value="${escHtml(cal.title || r.subject)}" />
+                </div>
+                <div class="cal-detail-item">
+                  <label>Attendee Email</label>
+                  <input type="email" id="cal-attendee-${i}" value="${escHtml(cal.attendee_email || r.sender_email)}" />
+                </div>
+                <div class="cal-detail-item">
+                  <label>Date (YYYY-MM-DD)</label>
+                  <input type="date" id="cal-date-${i}" value="${escHtml(cal.date || '')}" />
+                </div>
+                <div class="cal-detail-item">
+                  <label>Time (HH:MM)</label>
+                  <input type="time" id="cal-time-${i}" value="${escHtml(cal.time || '')}" />
+                </div>
+                <div class="cal-detail-item">
+                  <label>Duration (minutes)</label>
+                  <input type="number" id="cal-duration-${i}" value="${cal.duration_minutes || 60}" min="15" step="15" />
+                </div>
+                <div class="cal-detail-item">
+                  <label>Description</label>
+                  <input type="text" id="cal-desc-${i}" value="${escHtml(cal.description || '')}" />
+                </div>
+              </div>
+              <div class="cal-actions">
+                <button class="btn-confirm" onclick="confirmCalendar(${i}, '${r.calendar_action}', '${r.email_id}')">
+                  ✓ Add to Google Calendar
+                </button>
+                <button class="btn-skip" onclick="skipCalendar(${i})">Skip</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      card.innerHTML = `
+        <div class="card-header" onclick="toggleCard(${i})">
+          <span class="urgency-badge urgency-${r.urgency}">${r.urgency}</span>
+          <div class="card-meta">
+            <div class="card-subject">${escHtml(r.subject)}</div>
+            <div class="card-from">From: ${escHtml(r.sender)}</div>
+          </div>
+          <div class="card-icons">${pillsHTML}</div>
+          <span class="chevron" id="chevron-${i}">⌄</span>
+        </div>
+        <div class="card-body" id="card-body-${i}">
+          <div class="card-section">
+            <div class="section-label">Summary</div>
+            <div class="summary-text">${escHtml(r.summary)}</div>
+          </div>
+          ${r.key_points && r.key_points.length ? `
+          <div class="card-section">
+            <div class="section-label">Key Points</div>
+            <ul class="key-points">
+              ${r.key_points.map(p => `<li>${escHtml(p)}</li>`).join('')}
+            </ul>
+          </div>` : ''}
+          ${r.draft_reply ? `
+          <div class="card-section">
+            <div class="section-label">Draft Reply ${hasDraft ? '— Saved to Gmail Drafts ✓' : ''}</div>
+            <div class="draft-box">${escHtml(r.draft_reply)}</div>
+            ${hasDraft ? '<div class="draft-note">💾 This draft is saved in your Gmail Drafts. Review and send manually.</div>' : ''}
+          </div>` : `
+          <div class="card-section">
+            <div class="section-label">Reply</div>
+            <div class="summary-text" style="color:var(--muted)">${escHtml(r.reply_reason || 'No reply needed.')}</div>
+          </div>`}
+          ${calHTML}
+        </div>
+      `;
+
+      cardsDiv.appendChild(card);
+    });
+
+    resultsDiv.style.display = 'block';
+    resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function confirmCalendar(index, action, emailId) {
+    const title    = document.getElementById(`cal-title-${index}`).value.trim();
+    const date     = document.getElementById(`cal-date-${index}`).value.trim();
+    const time     = document.getElementById(`cal-time-${index}`).value.trim();
+    const duration = parseInt(document.getElementById(`cal-duration-${index}`).value);
+    const desc     = document.getElementById(`cal-desc-${index}`).value.trim();
+    const attendee = document.getElementById(`cal-attendee-${index}`).value.trim();
+
+    // ── Frontend validation ──
+    if (!date || date.includes('[')) {
+      alert('⚠️ Please enter a valid date before confirming.');
+      document.getElementById(`cal-date-${index}`).focus();
+      return;
+    }
+
+    if (!time || time.includes('[')) {
+      alert('⚠️ Please enter a valid time before confirming.');
+      document.getElementById(`cal-time-${index}`).focus();
+      return;
+    }
+
+    if (!title) {
+      alert('⚠️ Please enter an event title.');
+      document.getElementById(`cal-title-${index}`).focus();
+      return;
+    }
+
+    const btn = document.querySelector(`#cal-box-${index} .btn-confirm`);
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    try {
+      const response = await fetch('/api/confirm-calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action, title, date, time,
+          duration_minutes: duration,
+          description: desc,
+          attendee_email: attendee,
+          email_id: emailId
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.detail || 'Failed');
+
+      document.getElementById(`cal-box-${index}`).innerHTML = `
+        <div class="cal-confirmed">
+          ✅ Event created! <a href="${data.event_link}" target="_blank" style="color:var(--accent3);margin-left:8px;">View in Calendar →</a>
+        </div>
+      `;
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = '✓ Add to Google Calendar';
+      alert(`Failed to create event: ${err.message}`);
+    }
+  }
+
+  function skipCalendar(index) {
+    document.getElementById(`cal-box-${index}`).innerHTML = `
+      <div class="cal-skipped">⏭️ Calendar event skipped.</div>
+    `;
+  }
+
+  function showLoading() {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('loadingSteps').innerHTML = '';
+  }
+
+  function hideLoading() {
+    document.getElementById('loading').style.display = 'none';
+  }
+
+  function addLoadingStep(text) {
+    const div = document.getElementById('loadingSteps');
+    const step = document.createElement('div');
+    step.className = 'loading-step';
+    step.style.animationDelay = '0s';
+    step.textContent = text;
+    div.appendChild(step);
+  }
+
+  function showError(msg) {
+    const box = document.getElementById('errorBox');
+    box.textContent = msg;
+    box.style.display = 'block';
+  }
+
+  function hideError() {
+    document.getElementById('errorBox').style.display = 'none';
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>
